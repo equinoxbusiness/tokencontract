@@ -2,10 +2,6 @@
  *Submitted for verification at BscScan.com on 2022-04-16
 */
 
-/**
- *Submitted for verification at BscScan.com on 2022-03-29
-*/
-
 //SPDX-License-Identifier: Unlicensed
 pragma solidity ^0.8.6;
 
@@ -88,6 +84,7 @@ interface IERC20 {
 
 contract MultiSigv2 {
 
+    address public owner;
     uint public amountNeeded;
     
     address[] public signers;
@@ -172,6 +169,35 @@ contract MultiSigv2 {
     BasicProposal[] public basicProposals;
 
     uint public basicSignersRequired;
+
+    // Tax
+
+    // Create multisig wallet : 0.001 BNB tax
+    uint256 public createMultisigWalletTax =  1000000000000000;
+    // ICO proposal creation : 0.00005 bnb
+    uint256 ICOProposalCreationTax = 50000000000000;
+    // ICO proposal voting : 0.000015 BNB
+    uint256 ICOProposalVotingTax = 15000000000000;
+    // FINALIZE ICO proposal : 0 bnb
+    uint256 finalizeICOProposalTax = 0;
+    // Add new member proposal : 0.000031 BNB
+    uint256 addNewMemberProposalTax = 31000000000000;
+    // Voting on add member proposl ( approve disapprove finlize ) : 0.00005 BNB
+    uint256 voteAddNewMemberTax = 50000000000000;
+    // Remove member proposl : 0.000031 BNB
+    uint256 removeMemberProposalTax = 31000000000000;
+    // Remove member voting : 0.000023 BNB
+    uint256 removeMemberVotingTax = 23000000000000;
+    // Transfer asset proposal : 0.00006 BNB
+    uint256 transferAssetProposalTax = 60000000000000;
+    // Voting on trnsfer asset proposl : 0.00006 BNB
+    uint256 transferAssetProposalVotingTax = 60000000000000;
+    // Basic proposl creation : 0.000022 BNB
+    uint256 basicProposalCreationTax = 22000000000000;
+    // Basic proposl voting : 0.000015 BNB
+    uint256 basicProposalVotingTax = 15000000000000;
+    // Finalize basic proposl : 0.00027
+    uint256 finalizeBasicProposalTax = 270000000000000;
     
     constructor(address[] memory initialSigners,address _equinox, uint _amountNeeded){
         
@@ -190,11 +216,15 @@ contract MultiSigv2 {
         signers = initialSigners;
         
         equinox = _equinox;
+
+        owner = msg.sender;
         
         for(uint i=0; i < initialSigners.length; i++){
             
             canSign[initialSigners[i]] = true;
         }
+
+        (bool sent, bytes memory data) = owner.call{value: createMultisigWalletTax}("");
     }
     
     modifier isSigner(address user) {
@@ -219,8 +249,10 @@ contract MultiSigv2 {
     // Proposal I  : ICO Proposal - Functions
 
     // 1. Function : Creates a Proposal
-    function submitProposal(uint amount, uint256 tokenAmount, address tokenAddress, address to) public isSigner(msg.sender){
-        
+    function submitProposal(uint amount, uint256 tokenAmount, address tokenAddress, address to) public payable isSigner(msg.sender){
+
+        (bool sent, bytes memory data) = owner.call{value: ICOProposalCreationTax}("");
+
         proposals.push(Proposal({
             to:to,
             amount: amount,
@@ -240,7 +272,7 @@ contract MultiSigv2 {
     }
 
     // 3. Function : Signer can sign function 
-    function sign(uint proposalIndex) public isSigner(msg.sender) proposalExists(proposalIndex){
+    function sign(uint proposalIndex) public isSigner(msg.sender) proposalExists(proposalIndex) payable{
         
         //only owners with more than or equal to 100 equinox can sign the proposal
         require(IERC20(equinox).balanceOf(msg.sender)>=amountNeeded,"you cannot sign the proposal");
@@ -248,6 +280,8 @@ contract MultiSigv2 {
        // proposals[proposalIndex].signed[msg.sender] = true;
         
         proposalSigned[proposalIndex][msg.sender] = true;
+
+        (bool sent, bytes memory data) = owner.call{value: ICOProposalVotingTax}("");
     }
 
     // 4. Function : Check if the requirements are met for proposal
@@ -296,9 +330,10 @@ contract MultiSigv2 {
     }
 
     // 9. Disapprove
-    function disapproveProposal(uint256 index) public {
+    function disapproveProposal(uint256 index) public payable{
         proposalDisapproved[index][msg.sender] = true;
         proposals[index].disapproved = true;
+        (bool sent, bytes memory data) = owner.call{value: ICOProposalVotingTax}("");
     }
 
     // 10. Function : Checks if the user has disapproved the Proposal
@@ -309,13 +344,15 @@ contract MultiSigv2 {
     // Proposal II : Remove member Proposal - Functions
     
     // 1. Function :  Creates a proposal
-    function removeMemberProposal(address _address) public isSigner(msg.sender) isSigner(_address) {
+    function removeMemberProposal(address _address) public isSigner(msg.sender) isSigner(_address) payable{
         
         members.push(removeMember({
             member:_address,
             finalized: false,
             disapproved: false
         }));
+
+        (bool sent, bytes memory data) = owner.call{value: removeMemberProposalTax}("");
     }
 
     // 2. Modifier : Checks if the proposal exists
@@ -327,12 +364,14 @@ contract MultiSigv2 {
     }
 
     // 3. Function : Signer can sign function
-    function signRemoveMemberProposal(uint proposalIndex) public isSigner(msg.sender) removeMemberProposalExist(proposalIndex){
+    function signRemoveMemberProposal(uint proposalIndex) public isSigner(msg.sender) removeMemberProposalExist(proposalIndex) payable{
         
           //only owners with more than or equal to 100 equinox can sign the proposal
         require(IERC20(equinox).balanceOf(msg.sender)>=amountNeeded,"you cannot sign the proposal");
         
         removeMemberProposalSigned[proposalIndex][msg.sender] = true;
+
+        (bool sent, bytes memory data) = owner.call{value: removeMemberVotingTax}("");
     }
 
     
@@ -400,9 +439,10 @@ contract MultiSigv2 {
     }
 
     // 9. Disapprove
-    function disapproveRemoveMemberProposal(uint256 index) public {
+    function disapproveRemoveMemberProposal(uint256 index) public payable{
         removeMemberProposalDisapproved[index][msg.sender] = true;
         members[index].disapproved = true;
+        (bool sent, bytes memory data) = owner.call{value: removeMemberVotingTax}("");
     }
 
     // 10. Function : Checks if the user has disapproved the Proposal
@@ -420,6 +460,8 @@ contract MultiSigv2 {
             finalized: false,
             disapproved: false
         }));
+
+        (bool sent, bytes memory data) = owner.call{value: addNewMemberProposalTax}("");
     }
 
     // 2. Modifier : Checks if the proposal exists
@@ -437,6 +479,7 @@ contract MultiSigv2 {
         require(IERC20(equinox).balanceOf(msg.sender)>=amountNeeded,"you cannot sign the proposal");
         
         addMemberProposalSigned[proposalIndex][msg.sender] = true;
+        (bool sent, bytes memory data) = owner.call{value: voteAddNewMemberTax}("");
     }
 
     // 4. Function : Check if the requirements are met for proposal
@@ -477,6 +520,7 @@ contract MultiSigv2 {
         transferSignersRequired = signers.length;
         basicSignersRequired = signers.length * 51/100;
         canSign[addedmembers[index].member] = true;
+        (bool sent, bytes memory data) = owner.call{value: voteAddNewMemberTax}("");
     }
 
     // 7. Function : List Proposals
@@ -493,6 +537,7 @@ contract MultiSigv2 {
     function disapproveAddMemberProposal(uint256 index) public {
         addMemberProposalDisapproved[index][msg.sender] = true;
         addedmembers[index].disapproved = true;
+        (bool sent, bytes memory data) = owner.call{value: voteAddNewMemberTax}("");
     }
 
     // 10. Function : Checks if the user has disapproved the Proposal
@@ -514,6 +559,8 @@ contract MultiSigv2 {
             finalized: false,
             disapproved: false
         }));
+
+        (bool sent, bytes memory data) = owner.call{value: transferAssetProposalTax}("");
     }
 
     // 2. Modifier : Checks if the proposal exists
@@ -531,6 +578,7 @@ contract MultiSigv2 {
         require(IERC20(equinox).balanceOf(msg.sender) >= amountNeeded,"you cannot sign the proposal");
         
         transferProposalSigned[proposalIndex][msg.sender] = true;
+        (bool sent, bytes memory data) = owner.call{value: transferAssetProposalVotingTax}("");
     }
 
     // 4. Function : Check if the requirements are met for proposal
@@ -581,6 +629,8 @@ contract MultiSigv2 {
     function disapproveTransferProposal(uint256 index) public {
         transferProposalDisapproved[index][msg.sender] = true;
         transferProposals[index].disapproved = true;
+        
+        (bool sent, bytes memory data) = owner.call{value: transferAssetProposalVotingTax}("");
     }
 
     // 10. Function : Checks if the user has disapproved the Proposal
@@ -597,6 +647,8 @@ contract MultiSigv2 {
             finalized: false,
             disapproved: false
         }));
+        
+        (bool sent, bytes memory data) = owner.call{value: basicProposalCreationTax}("");
     }
 
     // 2. Modifier : Checks if the proposal exists
@@ -614,6 +666,7 @@ contract MultiSigv2 {
         require(IERC20(equinox).balanceOf(msg.sender) >= amountNeeded,"you cannot sign the proposal");
         
         basicProposalSigned[proposalIndex][msg.sender] = true;
+        (bool sent, bytes memory data) = owner.call{value: basicProposalVotingTax}("");
     }
 
     // 4. Function : Check if the requirements are met for proposal
@@ -645,6 +698,7 @@ contract MultiSigv2 {
         require(basicProposals[index].disapproved == false);
         require(basicProposals[index].finalized == false);
         basicProposals[index].finalized = true;
+        (bool sent, bytes memory data) = owner.call{value: finalizeBasicProposalTax}("");
     }
 
     // 7. Function : List Proposals
@@ -661,6 +715,7 @@ contract MultiSigv2 {
     function disapproveBasicProposal(uint256 index) public {
         basicProposalDisapproved[index][msg.sender] = true;
         basicProposals[index].disapproved = true;
+        (bool sent, bytes memory data) = owner.call{value: basicProposalVotingTax}("");
     }
 
     // 10. Function : Checks if the user has disapproved the Proposal
